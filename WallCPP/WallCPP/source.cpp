@@ -6,11 +6,14 @@
 using namespace cv;
 
 
-struct img
+struct Img
 {
 	Mat image;
 	int x;
 	int y;
+	int width;
+	int height;
+	int area;
 };
 
 void GetEdgeFromImage(Mat &source, Mat &output, int bulr_value)
@@ -62,7 +65,7 @@ int main()
 	cv::Mat frame,edgedFrame, claredge , copyed;
 	cv::VideoCapture capture(0);
 
-	std::vector<img> smallImages;
+	std::vector<Img> smallImages;
 	Mat im_with_keypoints;
 	if (!capture.isOpened()) {
 		std::cerr << "Could not open camera" << std::endl;
@@ -115,10 +118,13 @@ int main()
 						&& y + height <= copyed.rows) {
 						// box within the image plane
 						Mat region(copyed, box);
-						img im;
+						Img im;
 						im.image = region;
 						im.x = left;
 						im.y = top;
+						im.width = width;
+						im.height = height;
+						im.area = width * height;
 						smallImages.push_back(im);
 					}
 					rectangle(frame, Point(left, top), Point(left + width, top + height),
