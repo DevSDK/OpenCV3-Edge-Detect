@@ -5,6 +5,14 @@
 #include <opencv2\opencv.hpp>
 using namespace cv;
 
+
+struct img
+{
+	Mat image;
+	int x;
+	int y;
+};
+
 void GetEdgeFromImage(Mat &source, Mat &output, int bulr_value)
 {
 	Mat gray, image;
@@ -54,7 +62,7 @@ int main()
 	cv::Mat frame,edgedFrame, claredge , copyed;
 	cv::VideoCapture capture(0);
 
-	std::vector<Mat> smallImages;
+	std::vector<img> smallImages;
 	Mat im_with_keypoints;
 	if (!capture.isOpened()) {
 		std::cerr << "Could not open camera" << std::endl;
@@ -107,7 +115,11 @@ int main()
 						&& y + height <= copyed.rows) {
 						// box within the image plane
 						Mat region(copyed, box);
-						smallImages.push_back(region);
+						img im;
+						im.image = region;
+						im.x = left;
+						im.y = top;
+						smallImages.push_back(im);
 					}
 					rectangle(frame, Point(left, top), Point(left + width, top + height),
 						Scalar(0, 255,0), 0);
@@ -128,7 +140,7 @@ int main()
 
 		for (int i = 0; i < smallImages.size(); i++)
 		{
-			cv::imshow( ""+ i, smallImages.at(i));
+			cv::imshow( ""+ i , smallImages.at(i).image);
 		}
 
 		if (cv::waitKey(30) >= 0) break;
