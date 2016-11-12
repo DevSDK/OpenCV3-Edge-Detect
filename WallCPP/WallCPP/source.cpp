@@ -67,7 +67,7 @@ int main()
 
 		try {
 			capture >> frame; // get a new frame from webcam
-			copyed = frame;
+			copyed = frame.clone();
 		}
 		catch (cv::Exception& e) {
 			std::cerr << "Exception occurred. Ignoring frame... " << e.err
