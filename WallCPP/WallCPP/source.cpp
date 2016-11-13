@@ -3,12 +3,11 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2\opencv.hpp>
-using namespace cv;
 
 
 struct Img
 {
-	Mat image;
+	cv::Mat image;
 	int x;
 	int y;
 	int width;
@@ -16,142 +15,97 @@ struct Img
 	int area;
 };
 
-void GetEdgeFromImage(Mat &source, Mat &output, int bulr_value)
+void GetEdgeFromMat(cv::Mat &source, cv::Mat &output, int bulr_value)
 {
-	Mat gray, image;
-	cvtColor(source, gray, CV_BGR2GRAY);
-	Mat result;
-
-	blur(gray, result, Size(bulr_value, bulr_value));
-	Mat edgedimage, edge;
-	Canny(result, edge, 100, 200, 3);
-	edge.convertTo(output, CV_8U); //여백이 부족하여 설명을 달지 않겠다.
+	cv::Mat edge;
+	cvtColor(source, edge, CV_BGR2GRAY);
+	blur(edge, edge, cv::Size(bulr_value, bulr_value));
+	Canny(edge, edge, 100, 200, 3);
+	edge.convertTo(output, CV_8U);
 }
-void Blob(Mat & input, Mat &output)
-{
-	// Setup SimpleBlobDetector parameters.
-	SimpleBlobDetector::Params params;
 
-	// Change thresholds
-	params.minThreshold = 0;
-	params.maxThreshold = 100;
-	// Filter by Area.
-
-	std::vector<KeyPoint> keypoints;
-
-
-#if CV_MAJOR_VERSION < 3   // If you are using OpenCV 2
-
-	// Set up detector with params
-	SimpleBlobDetector detector(params); 
-
-	// Detect blobs
-	detector.detect(input, keypoints);
-#else 
-
-	// Set up detector with params
-	Ptr<SimpleBlobDetector> detector = SimpleBlobDetector::create(params);
-
-	// Detect blobs
-	detector->detect(input, keypoints);
-#endif 
-
-
-	drawKeypoints(input, keypoints, output, Scalar(0, 0, 255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-
-}
 int main()
 {
-	cv::Mat frame,edgedFrame, claredge , copyed;
 	cv::VideoCapture capture(0);
-
-	std::vector<Img> smallImages;
-	Mat im_with_keypoints;
+	cv::Mat frame,edgedFrame, binarizationEdgeFrame , clonFrame;
+	std::vector<Img> cutedFrmaeList;
+	cv::Mat im_with_keypoints;
 	if (!capture.isOpened()) {
 		std::cerr << "Could not open camera" << std::endl;
 		return 0;
 	}
 	while (true) {
+		cutedFrmaeList.clear();
 		bool frame_valid = true;
-
-		smallImages.clear();
-
 		try {
-			capture >> frame; // get a new frame from webcam
-			copyed = frame.clone();
+			capture >> frame;
+			clonFrame = frame.clone();
 		}
 		catch (cv::Exception& e) {
-			std::cerr << "Exception occurred. Ignoring frame... " << e.err
-				<< std::endl;
+			std::cerr << "Exception occurred. Ignoring frame... " << e.err<< std::endl;
 			frame_valid = false;
 		}
-
-		Mat  stats, centroids, eeeee;
+		cv::Mat  stats, centroids, forConnectArg;
 		if (frame_valid) {
 			try {
-				cv::imshow("cam", frame);
-				GetEdgeFromImage(frame, edgedFrame, 4);
+				cv::imshow("cam", clonFrame);
+				GetEdgeFromMat(clonFrame, edgedFrame, 3);
 				erode(edgedFrame, edgedFrame,0);
-				blur(edgedFrame, edgedFrame, Size(3, 3));
-				Blob(edgedFrame, claredge);
-				threshold(edgedFrame, claredge, 0, 255, CV_THRESH_BINARY);
-				cv::imshow("claredge", claredge);
-				
-				int numOfLables = connectedComponentsWithStats(claredge, eeeee,
-					stats, centroids, 8, CV_32S);
+				blur(edgedFrame, edgedFrame, cv::Size(3, 3));
+				threshold(edgedFrame, binarizationEdgeFrame, 0, 255, CV_THRESH_BINARY);
+				cv::imshow("claredge", binarizationEdgeFrame);
+				int numOfLables = connectedComponentsWithStats(binarizationEdgeFrame, 
+					forConnectArg, stats, centroids, 8, CV_32S);
+
 				std::cout << numOfLables << std::endl;
 				for (int j = 1; j < numOfLables; j++) {
-					int area = stats.at<int>(j, CC_STAT_AREA);
-					int left = stats.at<int>(j, CC_STAT_LEFT); 
-					int top = stats.at<int>(j, CC_STAT_TOP);
-					int width = stats.at<int>(j, CC_STAT_WIDTH);
-					int height = stats.at<int>(j, CC_STAT_HEIGHT);
-					
-					int x = centroids.at<double>(j, 0); //중심좌표
+					int area = stats.at<int>(j, cv::CC_STAT_AREA);
+					int left = stats.at<int>(j, cv::CC_STAT_LEFT); 
+					int top = stats.at<int>(j, cv::CC_STAT_TOP);
+					int width = stats.at<int>(j, cv::CC_STAT_WIDTH);
+					int height = stats.at<int>(j, cv::CC_STAT_HEIGHT);					
+					int x = centroids.at<double>(j, 0); 
 					int y = centroids.at<double>(j, 1);
-					cv::Rect box(x, y, width, height);
-					if (0 <= x
-						&& 0 <= width
-						&& x + width <= copyed.cols
-						&& 0 <= y
-						&& 0 <= height
-						&& y + height <= copyed.rows) {
-						// box within the image plane
-						Mat region(copyed, box);
-						Img im;
-						im.image = region;
-						im.x = left;
-						im.y = top;
-						im.width = width;
-						im.height = height;
-						im.area = width * height;
-						smallImages.push_back(im);
+
+					if (area > 400)
+					{
+						if (0  <= x
+						 && 0  <= width
+						 && x  +  width <= clonFrame.cols
+						 && 0  <= y
+						 && 0  <= height
+						 && y  +  height <= clonFrame.rows) 
+						{
+							cv::Rect box(x, y, width, height);	
+							cv::Mat region(frame, box);
+							Img im;
+							im.image = region;
+							im.x = left;
+							im.y = top;
+							im.width = width;
+							im.height = height;
+							im.area = width * height;
+							cutedFrmaeList.push_back(im);
+						}
+						rectangle(clonFrame, cv::Point(left, top), cv::Point(left + width, top + height),
+							cv::Scalar(0, 255,0), 0);
 					}
-					rectangle(frame, Point(left, top), Point(left + width, top + height),
-						Scalar(0, 255,0), 0);
-
-			
-
-				
 				}
-				std::cout << "T "<<smallImages.size() << std::endl;
-				cv::imshow("edgeccam", frame);
+				std::cout << "In List "<<cutedFrmaeList.size() << std::endl;
+				cv::imshow("edgeccam", clonFrame);
 			}	
-
 			catch (cv::Exception& e) {
-				std::cerr << "Exception occurred. Ignoring frame... " << e.err
-					<< std::endl;
+				std::cerr << "Exception occurred. Ignoring frame... " << e.err<< std::endl;
 			}
 		}
 
-		for (int i = 0; i < smallImages.size(); i++)
+		for (int i = 0; i < cutedFrmaeList.size(); i++)
 		{
-			cv::imshow( ""+ i , smallImages.at(i).image);
+			cv::imshow( ""+ i , cutedFrmaeList.at(i).image);
 		}
 
 		if (cv::waitKey(30) >= 0) break;
 	}
-
-	waitKey(0);
+	cv::waitKey(0);
 	return 0;
 }
